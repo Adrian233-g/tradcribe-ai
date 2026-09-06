@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Entorno virtual
+venv/
+.venv/
+env/
+ENV/
+
+# Variables de entorno (SECRETOS - NUNCA subir)
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Logs
+*.log
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# Streamlit
+.streamlit/
+
+# Agentes / customizaciones locales
+.agents/

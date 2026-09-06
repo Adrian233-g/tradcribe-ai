@@ -1,0 +1,10 @@
+Quantum Computing Paradigms in Modern Cryptography
+
+Abstract:
+Quantum computers leverage the fundamental principles of quantum superposition and entanglement to solve computational problems intractable for classical architectures. This paper surveys post-quantum cryptographic standards.
+
+1. Quantum Supremacy and Benchmarking
+Recent benchmarks show that superconducting qubits exhibit coherence times exceeding 100 microseconds. The primary trade-off between physical error rates and logical qubit overhead dictates the feasibility of fault-tolerant systems.
+
+2. State-of-the-Art Cryptanalysis
+Shor's algorithm represents a theoretical threat to RSA public-key schemes. Consequently, lattice-based cryptography is rapidly emerging as the new peer-reviewed standard for secure communications.
