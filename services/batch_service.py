@@ -39,24 +39,29 @@ class BatchService:
                 mime_type = uploaded_file.type or "text/plain"
                 ext = os.path.splitext(filename)[1].lower()
 
-                # Extraer texto según extensión
-                if ext == ".pdf":
-                    text_content = PDFParser.extract_text(file_bytes)
-                elif ext in [".docx", ".doc"]:
-                    text_content = DocxParser.extract_text(file_bytes)
-                else: # .txt, .md, etc.
-                    text_content = TextParser.extract_text(file_bytes)
-
+                # Crear registro preliminar para obtener doc.id
                 doc = Documento(
                     lote_id=lote_id,
                     nombre_archivo=filename,
                     tipo_mime=mime_type,
                     tamano_bytes=len(file_bytes),
-                    contenido_original=text_content,
+                    contenido_original="",
                     estado="pendiente",
-                    total_palabras=len(text_content.split())
+                    total_palabras=0
                 )
                 db.add(doc)
+                db.flush()
+
+                # Extraer texto según extensión vinculando doc.id para imágenes
+                if ext == ".pdf":
+                    text_content = PDFParser.extract_text(file_bytes, doc_id=doc.id)
+                elif ext in [".docx", ".doc"]:
+                    text_content = DocxParser.extract_text(file_bytes)
+                else: # .txt, .md, etc.
+                    text_content = TextParser.extract_text(file_bytes)
+
+                doc.contenido_original = text_content
+                doc.total_palabras = len(text_content.split())
 
             return lote_id
 

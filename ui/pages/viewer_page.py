@@ -93,56 +93,100 @@ def render_viewer_page():
     </div>
     """, unsafe_allow_html=True)
 
+    # Selector de Modo de Visualización
+    view_mode = st.radio(
+        "Modo de Visualización",
+        options=["📝 Editor de Texto", "👁️ Previsualización Renderizada (Tablas, Imágenes, Fórmulas)"],
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+
     # Vista lado a lado: Original vs Traducido
     col_orig, col_trans = st.columns(2, gap="medium")
 
-    with col_orig:
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
-                📄 Texto Original
-            </span>
-            <span style="font-size: 0.78rem; font-weight: 700; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: #94a3b8;">
-                {idioma_origen}
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-        st.text_area(
-            "Texto Original Extraído",
-            value=doc.get('contenido_original') or "",
-            height=490,
-            disabled=True,
-            key=f"orig_{doc['id']}",
-            label_visibility="collapsed"
-        )
+    if view_mode == "📝 Editor de Texto":
+        with col_orig:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
+                    📄 Texto Original Extraído
+                </span>
+                <span style="font-size: 0.78rem; font-weight: 700; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: #94a3b8;">
+                    {idioma_origen}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            st.text_area(
+                "Texto Original Extraído",
+                value=doc.get('contenido_original') or "",
+                height=490,
+                disabled=True,
+                key=f"orig_{doc['id']}",
+                label_visibility="collapsed"
+            )
 
-    with col_trans:
-        st.markdown(f"""
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
-                🌐 Traducción Generada (Editable)
-            </span>
-            <span style="font-size: 0.78rem; font-weight: 700; background: rgba(99,102,241,0.2); padding: 2px 8px; border-radius: 6px; color: #818cf8; border: 1px solid rgba(99,102,241,0.3);">
-                {idioma_destino}
-            </span>
-        </div>
-        """, unsafe_allow_html=True)
-        edited_translation = st.text_area(
-            "Traducción Generada",
-            value=doc.get('contenido_traducido') or "Aún no traducido.",
-            height=490,
-            key=f"trans_{doc['id']}",
-            label_visibility="collapsed"
-        )
+        with col_trans:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
+                    🌐 Traducción Generada (Editable)
+                </span>
+                <span style="font-size: 0.78rem; font-weight: 700; background: rgba(99,102,241,0.2); padding: 2px 8px; border-radius: 6px; color: #818cf8; border: 1px solid rgba(99,102,241,0.3);">
+                    {idioma_destino}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            edited_translation = st.text_area(
+                "Traducción Generada",
+                value=doc.get('contenido_traducido') or "Aún no traducido.",
+                height=490,
+                key=f"trans_{doc['id']}",
+                label_visibility="collapsed"
+            )
 
-        if st.button("💾 Guardar Cambios en PostgreSQL", use_container_width=True, type="secondary"):
-            with get_db() as db:
-                words = len(edited_translation.split())
-                db.execute(
-                    text("UPDATE documentos SET contenido_traducido = :trans, total_palabras = :words WHERE id = :doc_id"),
-                    {"trans": edited_translation, "words": words, "doc_id": doc_id}
-                )
-            st.success("¡Traducción actualizada y persistida con éxito!")
+            if st.button("💾 Guardar Cambios en PostgreSQL", use_container_width=True, type="secondary"):
+                with get_db() as db:
+                    words = len(edited_translation.split())
+                    db.execute(
+                        text("UPDATE documentos SET contenido_traducido = :trans, total_palabras = :words WHERE id = :doc_id"),
+                        {"trans": edited_translation, "words": words, "doc_id": doc_id}
+                    )
+                st.success("¡Traducción actualizada y persistida con éxito!")
+    else:
+        # Modo Previsualización Renderizada
+        with col_orig:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
+                    📄 Documento Original Estructurado
+                </span>
+                <span style="font-size: 0.78rem; font-weight: 700; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 6px; color: #94a3b8;">
+                    {idioma_origen}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 1.25rem; height: 520px; overflow-y: auto;">
+            """, unsafe_allow_html=True)
+            st.markdown(doc.get('contenido_original') or "*Sin contenido*", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_trans:
+            st.markdown(f"""
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; color: #f1f5f9; font-size: 0.95rem;">
+                    🌐 Traducción Renderizada
+                </span>
+                <span style="font-size: 0.78rem; font-weight: 700; background: rgba(99,102,241,0.2); padding: 2px 8px; border-radius: 6px; color: #818cf8; border: 1px solid rgba(99,102,241,0.3);">
+                    {idioma_destino}
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 1.25rem; height: 520px; overflow-y: auto;">
+            """, unsafe_allow_html=True)
+            st.markdown(doc.get('contenido_traducido') or "*Aún no traducido*", unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
     # Botones de Exportación Individual
     if doc.get('contenido_traducido'):

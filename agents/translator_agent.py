@@ -33,12 +33,13 @@ REGLAS ESENCIALES DE TRADUCCIÓN:
 REGLAS CRÍTICAS DE FORMATO (violar cualquiera de estas es INACEPTABLE):
 1. Preserva EXACTAMENTE toda la jerarquía de encabezados Markdown: # (H1), ## (H2), ### (H3), #### (H4). NO cambies el nivel ni elimines encabezados.
 2. Preserva EXACTAMENTE negritas (**texto**) y cursivas (*texto*) donde aparezcan.
-3. Preserva EXACTAMENTE las tablas Markdown con su estructura | columna | columna |, traduciendo solo el contenido de las celdas.
+3. Preserva EXACTAMENTE las tablas Markdown con su estructura | columna | columna |, traduciendo solo el contenido de las celdas sin romper las barras divisoras.
 4. Preserva EXACTAMENTE la numeración de secciones (1., 2.1., 3.1.2.) sin alterarla.
-5. Preserva EXACTAMENTE fórmulas LaTeX ($...$, $$...$$) y bloques de código (```...```) sin traducirlos.
-6. Preserva EXACTAMENTE listas con viñetas (- item) y listas numeradas (1. item).
-7. Preserva EXACTAMENTE los comentarios de página (<!-- [PAGE X] -->) sin modificarlos.
-8. Preserva EXACTAMENTE las referencias bibliográficas [1], [2, 3], (Smith et al., 2020) sin traducirlas.
+5. Preserva EXACTAMENTE fórmulas matemáticas y expresiones LaTeX ($...$, $$...$$, ```latex...```) sin traducirlas ni alterar variables o subíndices.
+6. Preserva EXACTAMENTE las etiquetas de imágenes Markdown: ![Caption](ruta/archivo.png). Traduce ÚNICAMENTE el texto descriptivo del caption dentro de ![...], y conserva EXACTAMENTE la ruta del archivo entre paréntesis (...) sin modificarla.
+7. Preserva EXACTAMENTE listas con viñetas (- item) y listas numeradas (1. item).
+8. Preserva EXACTAMENTE los comentarios de página (<!-- [PAGE X] -->) sin modificarlos.
+9. Preserva EXACTAMENTE las referencias bibliográficas [1], [2, 3], (Smith et al., 2020) sin traducirlas.
 
 TEXTO ORIGINAL A TRADUCIR:
 \"\"\"

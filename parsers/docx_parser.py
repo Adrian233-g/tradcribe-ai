@@ -1,3 +1,4 @@
+import os
 import io
 import re
 from typing import List
@@ -7,10 +8,11 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
+from PIL import Image as PILImage
 
 
 class DocxParser:
-    """Parser y generador de documentos DOCX con estilo académico profesional."""
+    """Parser y generador de documentos DOCX con estilo académico profesional y soporte para imágenes y tablas."""
 
     @staticmethod
     def extract_text(file_bytes: bytes) -> str:
@@ -137,8 +139,9 @@ class DocxParser:
 
     @classmethod
     def create_docx_from_markdown(cls, text: str) -> bytes:
-        """Genera un archivo DOCX profesional con tipografía académica (Times New Roman, A4, espaciado journal)."""
+        """Genera un archivo DOCX profesional con tipografía académica (Times New Roman, A4, espaciado journal e imágenes)."""
         doc = Document()
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         # ── Configurar página A4 con márgenes académicos ──
         for section in doc.sections:
@@ -178,6 +181,83 @@ class DocxParser:
                 i += 1
                 continue
 
+            # ── Bloques de Imágenes: ![Caption](path) ──
+            img_match = re.match(r'^!\[(.*?)\]\((.*?)\)', line)
+            if img_match:
+                caption = img_match.group(1).strip()
+                raw_path = img_match.group(2).strip()
+
+                resolved_path = raw_path
+                if not os.path.isabs(resolved_path):
+                    candidate = os.path.join(base_dir, resolved_path)
+                    if os.path.exists(candidate):
+                        resolved_path = candidate
+
+                if os.path.exists(resolved_path) and os.path.isfile(resolved_path):
+                    try:
+                        with PILImage.open(resolved_path) as pil_im:
+                            orig_w, orig_h = pil_im.size
+
+                        p_img = doc.add_paragraph()
+                        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        cls._set_paragraph_spacing(p_img, before=8, after=2, line_spacing=1.0)
+                        
+                        max_w_inches = 5.2
+                        target_w_inches = min(orig_w / 150.0, max_w_inches) if orig_w > 0 else max_w_inches
+                        p_img.add_run().add_picture(resolved_path, width=Inches(target_w_inches))
+
+                        # Caption en cursiva centrado
+                        if caption:
+                            p_cap = doc.add_paragraph()
+                            p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                            cls._set_paragraph_spacing(p_cap, before=2, after=8, line_spacing=1.0)
+                            r_cap = p_cap.add_run(caption)
+                            r_cap.font.name = 'Times New Roman'
+                            r_cap.font.size = Pt(9.5)
+                            r_cap.italic = True
+                            r_cap.font.color.rgb = RGBColor(75, 85, 99)
+
+                        i += 1
+                        continue
+                    except Exception:
+                        pass
+
+                # Fallback de imagen
+                p_alt = doc.add_paragraph()
+                p_alt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                r_alt = p_alt.add_run(f"🖼️ [Figura]: {caption}")
+                r_alt.italic = True
+                r_alt.font.size = Pt(9.5)
+                i += 1
+                continue
+
+            # ── Bloque de Ecuación: $$ ... $$ ──
+            if line.startswith("$$"):
+                eq_lines = []
+                if line == "$$":
+                    i += 1
+                    while i < n and not lines[i].strip().startswith("$$"):
+                        eq_lines.append(lines[i].strip())
+                        i += 1
+                    if i < n and lines[i].strip().startswith("$$"):
+                        i += 1
+                else:
+                    eq_content = re.sub(r'^\$\$\s*|\s*\$\$$', '', line)
+                    eq_lines.append(eq_content)
+                    i += 1
+
+                full_eq = " ".join(eq_lines).strip()
+                if full_eq:
+                    p_eq = doc.add_paragraph()
+                    p_eq.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    cls._set_paragraph_spacing(p_eq, before=6, after=6, line_spacing=1.15)
+                    r_eq = p_eq.add_run(full_eq)
+                    r_eq.font.name = 'Times New Roman'
+                    r_eq.font.size = Pt(10.5)
+                    r_eq.italic = True
+                    r_eq.font.color.rgb = RGBColor(15, 23, 42)
+                continue
+
             # ── Bloque de código: ``` ... ``` ──
             if line.startswith("```"):
                 code_lines = []
@@ -208,7 +288,7 @@ class DocxParser:
                 while i < n and lines[i].strip().startswith("|") and lines[i].strip().endswith("|"):
                     t_line = lines[i].strip()
                     if not re.match(r'^\|[\s\-:]+([\|][\s\-:]+)+\|$', t_line):
-                        cells = [c.strip() for c in t_line.strip("|").split("|")]
+                        cells = [c.strip().replace("&#124;", "|") for c in t_line.strip("|").split("|")]
                         table_lines.append(cells)
                     i += 1
 
