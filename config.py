@@ -32,11 +32,11 @@ class Config:
     WEB_TRANSLATOR_URL: str = os.getenv("WEB_TRANSLATOR_URL", "")
     WEB_TRANSLATOR_KEY: str = os.getenv("WEB_TRANSLATOR_KEY", "")
 
-    # Configuración de Agentes
-    AGENT_MAX_CHUNK_SIZE: int = int(os.getenv("AGENT_MAX_CHUNK_SIZE", "8000"))
+    # Configuración de Agentes - Optimizado para alta velocidad con Gemini 2.0 Flash
+    AGENT_MAX_CHUNK_SIZE: int = int(os.getenv("AGENT_MAX_CHUNK_SIZE", "14000"))
     AGENT_CRITIC_ENABLED: bool = os.getenv("AGENT_CRITIC_ENABLED", "true").lower() == "true"
     AGENT_TEMPERATURE: float = float(os.getenv("AGENT_TEMPERATURE", "0.2"))
-    AGENT_MAX_CONCURRENCY: int = int(os.getenv("AGENT_MAX_CONCURRENCY", "4"))
+    AGENT_MAX_CONCURRENCY: int = int(os.getenv("AGENT_MAX_CONCURRENCY", "5"))
 
     # Idiomas soportados
     SUPPORTED_LANGUAGES = {

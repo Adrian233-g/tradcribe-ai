@@ -6,10 +6,11 @@ from typing import Optional, List
 logger = logging.getLogger(__name__)
 
 class GeminiClient:
-    """Cliente unificado y ultra-resiliente para Google Gemini API con auto-descubrimiento, reintentos y backoff."""
+    """Cliente unificado y ultra-resiliente para Google Gemini API con auto-descubrimiento dinámico de modelos."""
 
     _models_cache: dict = {}
     _working_model_cache: dict = {}
+    _session = requests.Session()
 
     @classmethod
     def get_available_models(cls, api_key: str) -> List[str]:
@@ -20,7 +21,7 @@ class GeminiClient:
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean_k}"
         try:
-            r = requests.get(url, timeout=8)
+            r = cls._session.get(url, timeout=10)
             if r.status_code == 200:
                 data = r.json()
                 models = [
@@ -40,7 +41,7 @@ class GeminiClient:
         cls,
         prompt: str,
         api_key: str,
-        preferred_model: str = "gemini-2.0-flash",
+        preferred_model: str = "gemini-2.5-flash",
         temperature: float = 0.2,
         max_retries: int = 3
     ) -> str:
@@ -48,46 +49,49 @@ class GeminiClient:
             raise ValueError("GEMINI_API_KEY no suministrada. Configúrala en la barra lateral o archivo .env.")
 
         api_key = api_key.strip().strip('"').strip("'")
-        clean_model = preferred_model.replace("models/", "").strip()
+        clean_model = preferred_model.replace("models/", "").strip() if preferred_model else "gemini-2.5-flash"
 
-        # 1. Obtener modelos descubiertos o lista estándar de alta compatibilidad
+        # 1. Obtener modelos descubiertos para esta API key
         discovered = cls.get_available_models(api_key)
 
-        default_candidates = [
-            clean_model,
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-flash",
-            "gemini-1.5-flash-8b",
-            "gemini-1.5-pro",
-            "gemini-2.5-flash"
-        ]
-
-        # Priorizar último modelo que haya respondido con éxito
+        # 2. Priorizar el modelo preferido, luego el último exitoso, luego los descubiertos
+        candidates = []
+        if clean_model:
+            candidates.append(clean_model)
+        
         last_working = cls._working_model_cache.get(api_key)
-        if last_working and last_working in default_candidates:
-            ordered_candidates = [last_working] + [m for m in default_candidates if m != last_working]
-        else:
-            ordered_candidates = default_candidates
+        if last_working and last_working not in candidates:
+            candidates.append(last_working)
 
-        model_list = ([clean_model] if clean_model else []) + (discovered if discovered else []) + ordered_candidates
-        seen = set()
-        candidates = [m for m in model_list if not (m in seen or seen.add(m))]
+        for m in discovered:
+            if m not in candidates:
+                candidates.append(m)
+
+        fallback_standards = [
+            "gemini-2.5-flash",
+            "gemini-flash-latest",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-2.5-pro",
+            "gemini-1.5-pro"
+        ]
+        for m in fallback_standards:
+            if m not in candidates:
+                candidates.append(m)
 
         errors = []
 
-        # Intentar llamada con reintentos para manejar límites 429 de Google Free Tier
         for attempt in range(max_retries):
             for model_name in candidates:
                 for api_ver in ["v1beta", "v1"]:
+                    url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model_name}:generateContent?key={api_key}"
+                    headers = {"Content-Type": "application/json"}
+                    payload = {
+                        "contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": temperature}
+                    }
                     try:
-                        url = f"https://generativelanguage.googleapis.com/{api_ver}/models/{model_name}:generateContent?key={api_key}"
-                        headers = {"Content-Type": "application/json"}
-                        payload = {
-                            "contents": [{"parts": [{"text": prompt}]}],
-                            "generationConfig": {"temperature": temperature}
-                        }
-                        response = requests.post(url, json=payload, headers=headers, timeout=60)
+                        response = cls._session.post(url, json=payload, headers=headers, timeout=60)
 
                         if response.status_code == 200:
                             data = response.json()
@@ -99,22 +103,19 @@ class GeminiClient:
                                     return parts[0].get("text", "").strip()
 
                         elif response.status_code == 429:
-                            # Cuota/Rate Limit: Esperar con backoff exponencial
-                            sleep_time = 2.0 * (attempt + 1)
+                            sleep_time = 1.5 * (attempt + 1)
                             time.sleep(sleep_time)
-                            errors.append(f"Rate Limit (HTTP 429) en {model_name}, reintentando en {sleep_time}s...")
-                            break # Pasar al siguiente intento
-                        elif response.status_code == 404:
-                            # Modelo no existe en esta versión, probar siguiente
+                            errors.append(f"Rate Limit (429) en {model_name}")
+                            break
+                        elif response.status_code in [404, 400]:
                             continue
                         else:
-                            errors.append(f"{api_ver}/{model_name} (HTTP {response.status_code}): {response.text[:100]}")
+                            errors.append(f"{model_name} (HTTP {response.status_code}): {response.text[:80]}")
                     except Exception as e:
-                        errors.append(f"{api_ver}/{model_name}: {str(e)}")
+                        errors.append(f"{model_name}: {str(e)}")
 
-            # Pequeña pausa entre rondas de reintento si hubo errores
             if attempt < max_retries - 1:
-                time.sleep(1.5 * (attempt + 1))
+                time.sleep(1.0 * (attempt + 1))
 
-        last_error_summary = "\n".join(errors[-3:]) if errors else "Error desconocido de comunicación con Google API"
+        last_error_summary = "\n".join(errors[-2:]) if errors else "Error desconocido de comunicación con Google API"
         raise RuntimeError(f"Error en Gemini API:\n{last_error_summary}")

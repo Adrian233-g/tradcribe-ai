@@ -2,15 +2,19 @@ import re
 from typing import List
 
 class DocumentChunker:
-    """Divide artículos científicos y técnicos en fragmentos coherentes respetando párrafos y estructura."""
+    """Divide artículos científicos y técnicos en fragmentos grandes y coherentes respetando párrafos y estructura."""
 
     @staticmethod
-    def chunk_text(text: str, max_chunk_size: int = 2500) -> List[str]:
+    def chunk_text(text: str, max_chunk_size: int = 14000) -> List[str]:
         if not text or not text.strip():
             return []
 
         # Normalizar saltos de línea
         text = text.replace("\r\n", "\n")
+
+        # Si el texto completo es menor o igual al tamaño máximo, devolverlo como único chunk (máxima coherencia y velocidad)
+        if len(text) <= max_chunk_size:
+            return [text.strip()]
 
         # Separar por párrafos
         paragraphs = re.split(r'\n{2,}', text)
@@ -25,7 +29,7 @@ class DocumentChunker:
 
             p_len = len(p_clean)
 
-            # Si el párrafo por sí solo supera el tamaño máximo, dividirlo por oraciones
+            # Si un párrafo por sí solo supera el tamaño máximo, dividirlo por oraciones
             if p_len > max_chunk_size:
                 if current_chunk:
                     chunks.append("\n\n".join(current_chunk))
@@ -48,13 +52,14 @@ class DocumentChunker:
                     chunks.append(" ".join(sub_chunk))
                 continue
 
+            # Si agregar este párrafo supera el límite, guardar chunk actual y empezar uno nuevo
             if current_length + p_len > max_chunk_size and current_chunk:
                 chunks.append("\n\n".join(current_chunk))
                 current_chunk = [p_clean]
                 current_length = p_len
             else:
                 current_chunk.append(p_clean)
-                current_length += p_len + 2 # Considerando \n\n
+                current_length += p_len + 2 # Por el delimitador \n\n
 
         if current_chunk:
             chunks.append("\n\n".join(current_chunk))
